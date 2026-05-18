@@ -41,12 +41,17 @@ function doPost(e) {
 
   // [방어 3] OpenAI client_secret 발급
   const targetLang = body.target_language || 'ko';
+  // API 스펙: model은 session 내부, 필드는 audio.input / audio.output 중첩 구조
   const payload = {
-    model: 'gpt-realtime-translate',
     session: {
-      input_audio_transcription: { model: 'gpt-realtime-whisper' },
-      input_audio_noise_reduction: { type: 'near_field' },
-      output_audio: { language: targetLang }
+      model: 'gpt-realtime-translate',
+      audio: {
+        input: {
+          transcription:   { model: 'gpt-realtime-whisper' },
+          noise_reduction: { type: 'near_field' }
+        },
+        output: { language: targetLang }
+      }
     }
   };
 
@@ -73,8 +78,9 @@ function doPost(e) {
   const responseText = oaiRes.getContentText();
 
   if (statusCode !== 200) {
-    appendLog('ERROR', targetLang, statusCode, responseText.substring(0, 300));
-    return jsonResponse({ error: 'OpenAI API error', status: statusCode });
+    const detail = responseText.substring(0, 300);
+    appendLog('ERROR', targetLang, statusCode, detail);
+    return jsonResponse({ error: 'OpenAI API error', status: statusCode, detail: detail });
   }
 
   // 성공: 카운터 증가 + 로그

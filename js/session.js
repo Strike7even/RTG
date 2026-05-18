@@ -65,7 +65,12 @@ class TranslationSession {
     });
 
     const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+    if (!res.ok || data.error) {
+      const msg = data.detail
+        ? `${data.error} (HTTP ${data.status}: ${data.detail})`
+        : (data.error || `HTTP ${res.status}`);
+      throw new Error(msg);
+    }
     this.clientSecret = data.client_secret;
   }
 
