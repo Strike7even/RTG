@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>통역 보조 창</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    body { display: flex; flex-direction: column; height: 100dvh; }
+    .popup-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px; background: var(--bg2); border-bottom: 1px solid var(--border);
+      flex-shrink: 0; gap: 8px;
+    }
+    .popup-header .panel-label { font-size: 14px; font-weight: 700; color: var(--accent); }
+    .popup-controls { display: flex; gap: 6px; }
+  </style>
+</head>
+<body>
+  <div class="popup-header">
+    <span class="panel-label">📡 실시간 통역 — 보조 창</span>
+    <div class="popup-controls">
+      <button class="icon-btn" id="p-theme" title="테마">🌙</button>
+      <button class="icon-btn" id="p-font-plus"  title="글꼴 크게">A+</button>
+      <button class="icon-btn" id="p-font-minus" title="글꼴 작게">A-</button>
+      <button class="icon-btn" id="p-mirror" title="미러">↕</button>
+      <button class="icon-btn" id="p-clear" title="지우기">🗑</button>
+    </div>
+  </div>
+
+  <div class="panel-wrapper" style="flex:1; border-radius:0; border:none;">
+    <div class="panel" id="popup-panel"></div>
+  </div>
+
+  <script>
+    // ── 설정 (팝업 전용) ────────────────────────────────────────────────────
+    const themes   = ['dark', 'light', 'high-contrast'];
+    let curTheme   = localStorage.getItem('rt_popup_theme') || 'dark';
+    let fontSize   = parseInt(localStorage.getItem('rt_popup_font') || '28');
+    let mirrored   = false;
+
+    function applyTheme(t) {
+      curTheme = t;
+      document.documentElement.setAttribute('data-theme', t);
+      localStorage.setItem('rt_popup_theme', t);
+      document.getElementById('p-theme').textContent =
+        { dark: '☀️', light: '🌙', 'high-contrast': '◑' }[t] || '🌙';
+    }
+
+    function applyFont(size) {
+      fontSize = Math.min(Math.max(size, 16), 80);
+      document.documentElement.style.setProperty('--font-size-translate', fontSize + 'px');
+      localStorage.setItem('rt_popup_font', fontSize);
+    }
+
+    applyTheme(curTheme);
+    applyFont(fontSize);
+
+    // ── 컨트롤 ──────────────────────────────────────────────────────────────
+    document.getElementById('p-theme').addEventListener('click', () => {
+      applyTheme(themes[(themes.indexOf(curTheme) + 1) % themes.length]);
+    });
+    document.getElementById('p-font-plus').addEventListener('click', () => applyFont(fontSize + 4));
+    document.getElementById('p-font-minus').addEventListener('click', () => applyFont(fontSize - 4));
+    document.getElementById('p-mirror').addEventListener('click', () => {
+      mirrored = !mirrored;
+      const panel = document.getElementById('popup-panel').parentElement;
+      panel.style.transform = mirrored ? 'rotate(180deg)' : '';
+    });
+    document.getElementById('p-clear').addEventListener('click', () => {
+      document.getElementById('popup-panel').innerHTML = '';
+    });
+
+    // ── BroadcastChannel 수신 ───────────────────────────────────────────────
+    const ch    = new BroadcastChannel('rt-panel');
+    const panel = document.getElementById('popup-panel');
+
+    ch.onmessage = (e) => {
+      const { text, sourceText, ts } = e.data;
+      const div = document.createElement('div');
+      div.className = 't-line confirmed';
+      div.innerHTML = `
+        <span class="t-ts">${ts}</span>
+        <span class="t-text">${esc(text)}</span>
+        ${sourceText ? `<span class="t-src">${esc(sourceText)}</span>` : ''}
+      `;
+      panel.appendChild(div);
+      panel.scrollTop = panel.scrollHeight;
+    };
+
+    function esc(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── 키보드 단축키 ────────────────────────────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyF' && !e.ctrlKey) {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+        else document.exitFullscreen().catch(()=>{});
+      }
+    });
+  </script>
+</body>
+</html>

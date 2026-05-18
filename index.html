@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>실시간 통역</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ══ 헤더 ══════════════════════════════════════════════════════════════ -->
+  <header class="header">
+    <div class="header-left">
+
+      <!-- 모드 선택 -->
+      <div class="mode-buttons">
+        <button class="mode-btn" data-mode="unidirectional" title="단방향: 상대 언어 → 한국어">단방향</button>
+        <button class="mode-btn active" data-mode="toggle"  title="토글: 스페이스바로 방향 전환 (대면 회의 기본값)">토글 양방향</button>
+        <button class="mode-btn" data-mode="simultaneous"  title="동시 양방향: 오디오 분리 환경 권장">동시 양방향</button>
+      </div>
+
+      <!-- 언어 & 입력 소스 -->
+      <div class="header-selects">
+        <select id="foreign-lang" class="sel" title="상대 언어">
+          <!-- JS에서 채움 -->
+        </select>
+        <select id="input-source" class="sel" title="오디오 입력 소스">
+          <option value="mic">🎙 마이크</option>
+          <option value="tab">🖥 탭 오디오</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <span id="status-text" class="status-badge status-idle">대기 중</span>
+      <span id="session-timer" class="timer">00:00</span>
+      <span id="cost-meter"   class="cost-meter">$0.000</span>
+      <button id="btn-settings"   class="icon-btn" title="설정 (⚙)">⚙</button>
+      <button id="btn-theme"      class="icon-btn" title="테마 전환">🌙</button>
+      <button id="btn-fullscreen" class="icon-btn" title="전체화면 (F)">⛶</button>
+    </div>
+  </header>
+
+  <!-- ══ 경고 배너 ══════════════════════════════════════════════════════════ -->
+  <div id="warning-banner" class="warning-banner" style="display:none"></div>
+
+  <!-- ══ 번역 패널 ══════════════════════════════════════════════════════════ -->
+  <main class="panels">
+
+    <!-- 기본 패널: 상대 → 한국어 (단방향·토글·동시 공용) -->
+    <div class="panel-wrapper" id="primary-panel-wrapper">
+      <div class="panel-header">
+        <span class="panel-label" id="primary-label">→ 한국어</span>
+
+        <!-- 토글 모드 방향 표시 + 전환 버튼 -->
+        <div class="toggle-dir-row" id="toggle-dir-row" style="display:none">
+          <span id="toggle-dir-label" class="">상대방 → 한국어</span>
+          <button id="btn-toggle-dir" class="small-btn" title="방향 전환 (Space)">⇄ 전환</button>
+        </div>
+
+        <!-- 우측 패널 컨트롤 -->
+        <span style="flex:1"></span>
+        <button id="btn-mirror" class="small-btn" title="패널 180° 미러 (노트북 마주 앉을 때)">↕ 미러</button>
+        <button id="btn-popup"  class="small-btn" title="상대방용 보조 창 열기">⧉ 팝업</button>
+      </div>
+      <div class="panel" id="panel-primary">
+        <div class="panel-placeholder">번역 결과가 여기에 표시됩니다</div>
+      </div>
+    </div>
+
+    <!-- 보조 패널: 한국어 → 상대 (동시 양방향 전용) -->
+    <div class="panel-wrapper" id="secondary-panel-wrapper" style="display:none">
+      <div class="panel-header">
+        <span class="panel-label">한국어 → 상대방</span>
+      </div>
+      <div class="panel" id="panel-secondary">
+        <div class="panel-placeholder">한국어 발화가 여기에 번역됩니다</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ══ 푸터 ══════════════════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <button id="btn-start" class="btn btn-primary">▶ 시작</button>
+    <button id="btn-pause" class="btn" disabled>⏸ 일시정지</button>
+    <button id="btn-stop"  class="btn btn-danger" disabled>■ 정지</button>
+    <div class="font-controls">
+      <button id="btn-font-plus"  class="btn" title="글꼴 크게">A+</button>
+      <button id="btn-font-minus" class="btn" title="글꼴 작게">A−</button>
+    </div>
+    <button id="btn-save-txt" class="btn" title="회의록 TXT 저장">💾 TXT</button>
+    <button id="btn-save-md"  class="btn" title="회의록 Markdown 저장">💾 MD</button>
+  </footer>
+
+  <!-- ══ 설정 패널 ══════════════════════════════════════════════════════════ -->
+  <div id="settings-panel" class="settings-overlay hidden">
+    <div class="settings-box">
+      <div class="settings-head">
+        <h2>⚙ 설정</h2>
+        <button id="btn-settings-close" class="icon-btn">✕</button>
+      </div>
+
+      <!-- Apps Script 연결 -->
+      <div class="s-group">
+        <h3>Google Apps Script 연결</h3>
+        <div class="s-row">
+          <label for="s-script-url">Apps Script 웹 앱 URL</label>
+          <input type="url" id="s-script-url" class="text-input"
+                 placeholder="https://script.google.com/macros/s/…/exec">
+        </div>
+        <div class="s-row">
+          <label for="s-password">앱 비밀번호</label>
+          <input type="password" id="s-password" class="text-input"
+                 placeholder="설정한 APP_PASSWORD 값">
+        </div>
+        <p style="font-size:11px;color:var(--text2);margin-top:4px;">
+          📌 Apps Script의 Script Properties에 <code>OPENAI_API_KEY</code>와 <code>APP_PASSWORD</code>를 저장해야 합니다.
+        </p>
+      </div>
+
+      <!-- 오디오 장치 -->
+      <div class="s-group">
+        <h3>오디오 장치</h3>
+        <div class="s-row">
+          <label for="s-mic-device">마이크 장치</label>
+          <select id="s-mic-device" class="s-select"></select>
+        </div>
+        <div class="s-row-inline">
+          <input type="checkbox" id="s-audio-output">
+          <label for="s-audio-output">번역 음성 출력 켜기 <strong>(기본 OFF — 회의 방해 방지)</strong></label>
+        </div>
+        <div class="s-row">
+          <label for="s-output-device">출력 장치 (이어폰 권장)</label>
+          <select id="s-output-device" class="s-select"></select>
+        </div>
+        <p style="font-size:11px;color:var(--yellow);margin-top:4px;">
+          ⚠️ 음성 출력을 켜면 이어폰 등 별도 장치를 반드시 선택하세요. 회의실 스피커로 새어 나올 수 있습니다.
+        </p>
+      </div>
+
+      <!-- 표시 설정 -->
+      <div class="s-group">
+        <h3>표시 설정</h3>
+        <div class="s-row-inline">
+          <input type="checkbox" id="s-show-source" checked>
+          <label for="s-show-source">원문(입력 언어) 텍스트 함께 표시</label>
+        </div>
+      </div>
+
+      <!-- 비용 안내 -->
+      <div class="s-group">
+        <h3>비용 안내</h3>
+        <p style="font-size:12px;color:var(--text2);line-height:1.6;">
+          • <b>$0.034 / 분</b> 당 1세션 (침묵 포함)<br>
+          • 동시 양방향: 세션 2개 → 약 <b>$0.068 / 분</b><br>
+          • <b>ChatGPT Pro 구독은 API 과금을 포함하지 않습니다.</b><br>
+          &nbsp;&nbsp;<code>platform.openai.com</code>에서 별도 결제 필요 (Tier 1 이상)<br>
+          • 침묵 구간도 과금 — 휴식 시 ⏸ 일시정지를 권장합니다.
+        </p>
+      </div>
+
+      <div class="settings-actions">
+        <button id="btn-settings-save"   class="btn btn-primary">저장</button>
+        <button id="btn-settings-cancel" class="btn">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 스크립트 ═══════════════════════════════════════════════════════════ -->
+  <script src="js/config.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/session.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/record.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
