@@ -83,13 +83,22 @@ function doPost(e) {
     return jsonResponse({ error: 'OpenAI API error', status: statusCode, detail: detail });
   }
 
-  // 성공: 카운터 증가 + 로그
+  // 성공: 카운터 증가 + 로그 (응답 구조 확인용으로 앞 200자 기록)
   props.setProperty(countKey, String(currentCount + 1));
-  appendLog('OK', targetLang, statusCode, '');
+  const preview = responseText.substring(0, 200);
+  appendLog('OK', targetLang, statusCode, preview);
 
   const data = JSON.parse(responseText);
+  // API 응답 구조: { client_secret: { value, expires_at } } 또는 { value, expires_at } 직접
+  const clientSecret = (data.client_secret !== undefined) ? data.client_secret
+                     : (data.value         !== undefined) ? { value: data.value, expires_at: data.expires_at }
+                     : null;
+  if (!clientSecret) {
+    appendLog('ERROR', targetLang, statusCode, 'client_secret 필드 없음: ' + preview);
+    return jsonResponse({ error: 'client_secret 파싱 실패', detail: preview });
+  }
   return jsonResponse({
-    client_secret: data.client_secret,
+    client_secret: clientSecret,
     target_language: targetLang,
     remaining_today: dailyLimit - currentCount - 1
   });
