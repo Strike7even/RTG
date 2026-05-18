@@ -28,11 +28,11 @@ const Audio = (() => {
 
   async function getTabStream() {
     // 탭/시스템 오디오 캡처 (화상 회의용)
+    // video: true 필수 — Windows/Chrome은 video: false 시 오디오 픽커를 표시하지 않음
     const stream = await navigator.mediaDevices.getDisplayMedia({
       audio: { suppressLocalAudioPlayback: false },
-      video: false
+      video: true
     });
-    // video 트랙이 딸려올 경우 제거
     stream.getVideoTracks().forEach(t => t.stop());
     return stream;
   }

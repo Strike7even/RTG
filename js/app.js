@@ -39,6 +39,7 @@ const App = (() => {
     _bindEvents();
     _applyMode(mode, false);
     if (!Config.isConfigured()) {
+      _loadDeviceLists();
       UI.showSettings(true);
       UI.setStatus('설정을 먼저 입력해 주세요', 'warning');
     }
@@ -119,6 +120,10 @@ const App = (() => {
       ?.addEventListener('click', () => UI.showSettings(false));
     document.getElementById('btn-settings-save')
       ?.addEventListener('click', _saveSettings);
+
+    // 번역 음성 출력 체크박스 → 출력 장치 행 토글
+    document.getElementById('s-audio-output')
+      ?.addEventListener('change', e => _toggleOutputDeviceRow(e.target.checked));
 
     // 원문 토글
     document.getElementById('s-show-source')
@@ -321,6 +326,11 @@ const App = (() => {
     if (audioOut !== undefined) Config.setAudioOutput(audioOut);
 
     const outDev = document.getElementById('s-output-device')?.value;
+    // 번역 음성 ON이면 출력 장치 선택 필수
+    if (audioOut && !outDev) {
+      alert('번역 음성을 켜려면 출력 장치(이어폰 등)를 반드시 선택해 주세요.');
+      return;
+    }
     if (outDev) Config.setOutputDevice(outDev);
 
     const showSrc = document.getElementById('s-show-source')?.checked;
@@ -339,6 +349,9 @@ const App = (() => {
   // ── 장치 목록 로드 ────────────────────────────────────────────────────────────
 
   async function _loadDeviceLists() {
+    // 패널 열릴 때 오디오 출력 행 초기 상태 반영
+    _toggleOutputDeviceRow(Config.getAudioOutput());
+
     const [mics, outs] = await Promise.all([
       Audio.listMicDevices(),
       Audio.listOutputDevices()
@@ -364,12 +377,19 @@ const App = (() => {
   // ── 유틸 ────────────────────────────────────────────────────────────────────
 
   function _setStarted(on) {
-    document.getElementById('btn-start')?.setAttribute('disabled', on ? '' : null);
-    if (!on) document.getElementById('btn-start')?.removeAttribute('disabled');
-    document.getElementById('btn-stop')?.toggleAttribute('disabled', !on);
-    if (on) document.getElementById('btn-stop')?.removeAttribute('disabled');
-    document.getElementById('btn-pause')?.toggleAttribute('disabled', !on);
-    if (on) document.getElementById('btn-pause')?.removeAttribute('disabled');
+    const startEl = document.getElementById('btn-start');
+    const stopEl  = document.getElementById('btn-stop');
+    const pauseEl = document.getElementById('btn-pause');
+    if (startEl) on ? startEl.setAttribute('disabled', '') : startEl.removeAttribute('disabled');
+    if (stopEl)  on ? stopEl.removeAttribute('disabled')   : stopEl.setAttribute('disabled', '');
+    if (pauseEl) on ? pauseEl.removeAttribute('disabled')  : pauseEl.setAttribute('disabled', '');
+  }
+
+  function _toggleOutputDeviceRow(show) {
+    const row  = document.getElementById('s-output-device-row');
+    const warn = document.getElementById('s-output-warn');
+    if (row)  row.style.display  = show ? '' : 'none';
+    if (warn) warn.style.display = show ? '' : 'none';
   }
 
   function _toggleFullscreen() {
