@@ -43,9 +43,11 @@ function doPost(e) {
   const targetLang = body.target_language || 'ko';
   const payload = {
     model: 'gpt-realtime-translate',
-    input_audio_transcription: { model: 'gpt-realtime-whisper' },
-    input_audio_noise_reduction: { type: 'near_field' },
-    output_audio: { language: targetLang }
+    session: {
+      input_audio_transcription: { model: 'gpt-realtime-whisper' },
+      input_audio_noise_reduction: { type: 'near_field' },
+      output_audio: { language: targetLang }
+    }
   };
 
   let oaiRes;
