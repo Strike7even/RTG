@@ -171,6 +171,17 @@ select.sel {
 }
 .icon-btn:hover { background: var(--surface); color: var(--text); }
 
+/* 마이크 음파 시각화 */
+#mic-viz {
+  display: none;
+  flex-shrink: 0;
+  border-radius: 4px;
+  opacity: 0.9;
+}
+#mic-viz.active {
+  display: block;
+}
+
 /* ── 경고 배너 ───────────────────────────────────────────────────────────── */
 
 .warning-banner {

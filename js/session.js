@@ -108,9 +108,22 @@ class TranslationSession {
       }
     };
 
-    // SDP offer 생성 → OpenAI에 전송
+    // SDP offer 생성 → ICE 후보 수집 완료 대기 → OpenAI에 전송
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
+
+    // ICE 후보가 모두 수집될 때까지 대기 (Vanilla ICE)
+    await new Promise((resolve) => {
+      if (this.pc.iceGatheringState === 'complete') { resolve(); return; }
+      const onState = () => {
+        if (this.pc.iceGatheringState === 'complete') {
+          this.pc.removeEventListener('icegatheringstatechange', onState);
+          resolve();
+        }
+      };
+      this.pc.addEventListener('icegatheringstatechange', onState);
+      setTimeout(resolve, 4000); // 최대 4초 대기
+    });
 
     const secretValue = typeof this.clientSecret === 'object'
       ? this.clientSecret.value
@@ -122,7 +135,7 @@ class TranslationSession {
         'Authorization': `Bearer ${secretValue}`,
         'Content-Type': 'application/sdp'
       },
-      body: offer.sdp
+      body: this.pc.localDescription.sdp  // ICE 후보가 포함된 최종 SDP
     });
 
     if (!answerRes.ok) {
@@ -173,6 +186,8 @@ class TranslationSession {
       case 'error':
         console.error('[Session] 오류:', evt);
         break;
+      default:
+        console.log('[Session] 미처리 이벤트:', evt.type, JSON.stringify(evt).slice(0, 200));
     }
   }
 

@@ -216,10 +216,12 @@ const App = (() => {
         }
       }
 
+      Audio.startViz(streamA);
       UI.setStatus('● 연결됨', 'connected');
     } catch (err) {
       isRunning = false;
       _setStarted(false);
+      Audio.stopViz();
       UI.setStatus('연결 실패: ' + err.message, 'error');
       console.error('[App] 시작 오류:', err);
     }
@@ -280,6 +282,7 @@ const App = (() => {
   // ── 정지 ────────────────────────────────────────────────────────────────────
 
   async function stop() {
+    Audio.stopViz();
     sessionA?.close(); sessionA = null;
     sessionB?.close(); sessionB = null;
     Audio.stopStream(streamA); streamA = null;
