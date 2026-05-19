@@ -6,11 +6,61 @@ const UI = (() => {
     secondary: { lines: [], delta: '' }
   };
 
+  let _editingPanel = null; // 편집 중인 패널 ID ('primary' | 'secondary' | null)
+
   // ── 초기화 ──────────────────────────────────────────────────────────────────
 
   function init() {
     applyTheme(Config.getTheme());
     applyFontSize(Config.getFontSize());
+    _setupEditListeners();
+  }
+
+  // ── 인라인 편집 (더블클릭) ────────────────────────────────────────────────
+
+  function _setupEditListeners() {
+    ['primary', 'secondary'].forEach(panelId => {
+      const panelEl = document.getElementById('panel-' + panelId);
+      if (!panelEl) return;
+
+      panelEl.addEventListener('dblclick', (e) => {
+        const tText = e.target.closest('.t-line.confirmed .t-text');
+        if (!tText) return;
+        const line = tText.closest('.t-line.confirmed');
+        const idx  = parseInt(line?.dataset.index ?? '-1');
+        if (idx < 0 || !panels[panelId].lines[idx]) return;
+
+        _editingPanel = panelId;
+        tText.contentEditable = 'true';
+        tText.style.outline = '2px solid var(--accent)';
+        tText.style.borderRadius = '3px';
+        // 전체 선택
+        const range = document.createRange();
+        range.selectNodeContents(tText);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        tText.focus();
+
+        const finish = () => {
+          tText.contentEditable = 'false';
+          tText.style.outline = '';
+          tText.style.borderRadius = '';
+          const newText = tText.textContent.trim();
+          if (newText) panels[panelId].lines[idx].text = newText;
+          _editingPanel = null;
+        };
+
+        tText.addEventListener('blur', finish, { once: true });
+        tText.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); tText.blur(); }
+          if (ev.key === 'Escape') {
+            tText.textContent = panels[panelId].lines[idx]?.text || '';
+            tText.blur();
+          }
+        });
+      });
+    });
   }
 
   // ── 테마 / 폰트 ─────────────────────────────────────────────────────────────
@@ -63,13 +113,14 @@ const UI = (() => {
   }
 
   function _render(panelId) {
+    if (_editingPanel === panelId) return; // 편집 중에는 재렌더 건너뜀
     const el = document.getElementById('panel-' + panelId);
     if (!el) return;
     const showSrc = Config.getShowSource();
     const { lines, delta } = panels[panelId];
 
-    let html = lines.map(l => `
-      <div class="t-line confirmed">
+    let html = lines.map((l, i) => `
+      <div class="t-line confirmed" data-index="${i}">
         <span class="t-ts">${l.ts}</span>
         <span class="t-text">${_esc(l.text)}</span>
         ${showSrc && l.sourceText ? `<span class="t-src">${_esc(l.sourceText)}</span>` : ''}
@@ -105,32 +156,48 @@ const UI = (() => {
     } catch (_) {}
   }
 
+  // ── 방향 화살표 레이블 ───────────────────────────────────────────────────────
+
+  // dir: 'to-lang2' → arrow shows →  |  'to-lang1' → arrow shows ←
+  function setDirLabel(lang1Name, lang2Name, dir) {
+    const arrowBtn = document.getElementById('btn-dir-arrow');
+    const l1El     = document.getElementById('dir-lang1');
+    const l2El     = document.getElementById('dir-lang2');
+    if (arrowBtn) arrowBtn.textContent = (dir === 'to-lang2') ? '→' : '←';
+    if (l1El) l1El.textContent = lang1Name;
+    if (l2El) l2El.textContent = lang2Name;
+  }
+
   // ── 레이아웃 / 모드 ─────────────────────────────────────────────────────────
 
   function setMode(mode) {
     document.querySelectorAll('.mode-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.mode === mode);
     });
+
     const sec = document.getElementById('secondary-panel-wrapper');
     if (sec) sec.style.display = mode === 'simultaneous' ? '' : 'none';
 
-    const toggleRow = document.getElementById('toggle-dir-row');
-    if (toggleRow) toggleRow.style.display = mode === 'toggle' ? '' : 'none';
-
-    const primaryLabel = document.getElementById('primary-label');
-    if (primaryLabel) {
-      primaryLabel.textContent = mode === 'simultaneous' ? '상대 → 한국어' : '→ 한국어';
+    // 방향 제어 영역: 토글 모드에만 화살표 버튼 활성화
+    const dirCtrl  = document.getElementById('dir-control');
+    const arrowBtn = document.getElementById('btn-dir-arrow');
+    if (dirCtrl) dirCtrl.style.display = '';
+    if (arrowBtn) {
+      if (mode === 'toggle') {
+        arrowBtn.disabled = false;
+        arrowBtn.classList.remove('dir-arrow-disabled');
+      } else {
+        arrowBtn.disabled = true;
+        arrowBtn.classList.add('dir-arrow-disabled');
+      }
     }
   }
 
-  function setToggleDirection(dir) {
-    const el = document.getElementById('toggle-dir-label');
-    if (el) el.textContent = dir === 'to-ko' ? '상대방 → 한국어' : '한국어 → 상대방';
-  }
-
   function setMirror(enabled) {
-    document.getElementById('primary-panel-wrapper')
-      ?.classList.toggle('mirrored', enabled);
+    const wrap = document.getElementById('primary-panel-wrapper');
+    wrap?.classList.toggle('mirrored', enabled);
+    const btn = document.getElementById('btn-mirror');
+    if (btn) btn.classList.toggle('active', enabled);
   }
 
   // ── 상태 표시 ────────────────────────────────────────────────────────────────
@@ -152,7 +219,6 @@ const UI = (() => {
   function showSettings(show) {
     document.getElementById('settings-panel')?.classList.toggle('hidden', !show);
     if (show) {
-      // 현재 설정 값 반영
       const url = document.getElementById('s-script-url');
       const pwd = document.getElementById('s-password');
       const out = document.getElementById('s-audio-output');
@@ -168,7 +234,7 @@ const UI = (() => {
     init,
     applyTheme, cycleTheme, applyFontSize, changeFontSize,
     updateDelta, appendFinal, clearPanel, getPanelLines,
-    setMode, setToggleDirection, setMirror,
+    setDirLabel, setMode, setMirror,
     setStatus, showWarning, showSettings
   };
 })();

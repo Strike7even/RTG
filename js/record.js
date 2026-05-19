@@ -69,30 +69,45 @@ const Record = (() => {
     _entries = [];
   }
 
-  function _formatTime(iso) {
-    return new Date(iso).toLocaleTimeString('ko-KR', { hour12: false });
+  function hasEntries() {
+    return _entries.length > 0;
   }
 
-  function _toTxt() {
+  function _formatTime(ts) {
+    return new Date(ts).toLocaleTimeString('ko-KR', { hour12: false });
+  }
+
+  function _toTxt(entries) {
     const warn = '⚠️ 통역 결과에 오류가 있을 수 있으며, 회의 내용에 민감·기밀 정보가 포함될 수 있으니 취급에 주의하세요.\n\n';
-    const body = _entries.map(e =>
+    const body = entries.map(e =>
       `[${_formatTime(e.ts)}] ${e.text}` +
       (e.sourceText ? `\n  (원문: ${e.sourceText})` : '')
     ).join('\n');
     return warn + body;
   }
 
-  function _toMd() {
+  function _toMd(entries) {
     const warn = '> ⚠️ **주의**: 통역 결과에 오류가 있을 수 있으며, 회의 내용에 민감·기밀 정보가 포함될 수 있으니 취급에 주의하세요.\n\n# 회의록\n\n';
-    const body = _entries.map(e =>
+    const body = entries.map(e =>
       `**[${_formatTime(e.ts)}]** ${e.text}` +
       (e.sourceText ? `\n> 원문: ${e.sourceText}` : '')
     ).join('\n\n');
     return warn + body;
   }
 
-  function saveWithWarning(format) {
-    if (_entries.length === 0) { alert('저장할 내용이 없습니다.'); return; }
+  // fallbackLines: UI.getPanelLines 결과를 전달받아 _entries가 비어있을 때 폴백으로 사용
+  function saveWithWarning(format, fallbackLines) {
+    // _entries가 비면 화면에 표시된 줄(UI 폴백)을 사용
+    const entries = _entries.length > 0
+      ? _entries
+      : (fallbackLines || []).map(l => ({
+          ts:         l.ts ? String(l.ts) : new Date().toISOString(),
+          panelId:    'primary',
+          text:       l.text        || '',
+          sourceText: l.sourceText  || ''
+        })).filter(e => e.text.trim());
+
+    if (entries.length === 0) { alert('저장할 내용이 없습니다.'); return; }
 
     const ok = confirm(
       '⚠️ 회의록 저장 안내\n\n' +
@@ -103,8 +118,8 @@ const Record = (() => {
     if (!ok) return;
 
     const date    = new Date().toISOString().slice(0, 10);
-    const content = format === 'md' ? _toMd() : _toTxt();
-    const ext     = format === 'md' ? 'md'    : 'txt';
+    const content = format === 'md' ? _toMd(entries) : _toTxt(entries);
+    const ext     = format === 'md' ? 'md' : 'txt';
     _download(content, `meeting-${date}.${ext}`);
   }
 
@@ -116,5 +131,5 @@ const Record = (() => {
     URL.revokeObjectURL(url);
   }
 
-  return { start, stop, pause, resume, setSessionCount, addEntry, clearEntries, saveWithWarning };
+  return { start, stop, pause, resume, setSessionCount, addEntry, clearEntries, hasEntries, saveWithWarning };
 })();

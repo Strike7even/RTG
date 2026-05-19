@@ -1,43 +1,45 @@
-// app.js — 메인 컨트롤러: 3개 모드 관리, 세션 수명주기, 단축키
+// app.js — 메인 컨트롤러: 2개 모드 관리, 세션 수명주기, 단축키
 
 const App = (() => {
   const LANGUAGES = [
-    { code: 'en', label: 'English'    },
-    { code: 'zh', label: '中文'       },
-    { code: 'ja', label: '日本語'     },
-    { code: 'es', label: 'Español'   },
-    { code: 'fr', label: 'Français'  },
-    { code: 'de', label: 'Deutsch'   },
-    { code: 'pt', label: 'Português' },
-    { code: 'ru', label: 'Русский'   },
-    { code: 'hi', label: 'हिन्दी'      },
-    { code: 'id', label: 'Indonesia' },
+    { code: 'ko', label: '한국어'    },
+    { code: 'en', label: 'English'   },
+    { code: 'zh', label: '中文'      },
+    { code: 'ja', label: '日本語'    },
+    { code: 'es', label: 'Español'  },
+    { code: 'fr', label: 'Français' },
+    { code: 'de', label: 'Deutsch'  },
+    { code: 'pt', label: 'Português'},
+    { code: 'ru', label: 'Русский'  },
+    { code: 'hi', label: 'हिन्दी'     },
+    { code: 'id', label: 'Indonesia'},
     { code: 'vi', label: 'Tiếng Việt'},
-    { code: 'it', label: 'Italiano'  }
-    // 한국어(ko)는 항상 자국어이므로 선택 목록에서 제외
+    { code: 'it', label: 'Italiano' }
   ];
 
   // ── 상태 ────────────────────────────────────────────────────────────────────
 
-  let mode          = 'toggle';  // 'unidirectional' | 'toggle' | 'simultaneous'
-  let foreignLang   = 'en';
-  let inputSource   = 'mic';     // 'mic' | 'tab'
-  let isRunning     = false;
-  let isPaused      = false;
-  let toggleDir     = 'to-ko';   // 'to-ko' | 'to-foreign' (토글 모드)
+  let mode        = 'toggle';     // 'toggle' | 'simultaneous'
+  let lang1       = 'ko';         // 언어1 (기본: 한국어)
+  let lang2       = 'en';         // 언어2 (기본: 영어)
+  let inputSource = 'mic';
+  let isRunning   = false;
+  let isPaused    = false;
+  let toggleDir   = 'to-lang2';   // 'to-lang1' | 'to-lang2'
 
-  let sessionA      = null;      // 외국어→한국어 (또는 토글 현재 방향)
-  let sessionB      = null;      // 한국어→외국어 (동시 양방향 전용)
-  let streamA       = null;
-  let streamB       = null;
+  let sessionA    = null;
+  let sessionB    = null;
+  let streamA     = null;
+  let streamB     = null;
 
   // ── 초기화 ──────────────────────────────────────────────────────────────────
 
   function init() {
     UI.init();
-    _populateLangSelect();
+    _populateLangSelects();
     _bindEvents();
     _applyMode(mode, false);
+    _updateDirLabel();
     if (!Config.isConfigured()) {
       _loadDeviceLists();
       UI.showSettings(true);
@@ -45,13 +47,31 @@ const App = (() => {
     }
   }
 
-  function _populateLangSelect() {
-    const sel = document.getElementById('foreign-lang');
+  // ── 언어 셀렉트 채우기 ────────────────────────────────────────────────────────
+
+  function _populateLangSelects() {
+    _renderLangSelect('lang1', lang1, lang2);
+    _renderLangSelect('lang2', lang2, lang1);
+  }
+
+  function _renderLangSelect(id, selected, exclude) {
+    const sel = document.getElementById(id);
     if (!sel) return;
-    sel.innerHTML = LANGUAGES.map(l =>
-      `<option value="${l.code}">${l.label}</option>`
-    ).join('');
-    sel.value = foreignLang;
+    sel.innerHTML = LANGUAGES
+      .filter(l => l.code !== exclude)
+      .map(l => `<option value="${l.code}"${l.code === selected ? ' selected' : ''}>${l.label}</option>`)
+      .join('');
+  }
+
+  function _getLangLabel(code) {
+    return LANGUAGES.find(l => l.code === code)?.label || code;
+  }
+
+  function _updateDirLabel() {
+    UI.setDirLabel(_getLangLabel(lang1), _getLangLabel(lang2), toggleDir);
+    // 동시 양방향 모드: 보조 패널 레이블 업데이트
+    const secLabel = document.getElementById('secondary-label');
+    if (secLabel) secLabel.textContent = `${_getLangLabel(lang1)} → ${_getLangLabel(lang2)}`;
   }
 
   // ── 이벤트 바인딩 ────────────────────────────────────────────────────────────
@@ -62,9 +82,25 @@ const App = (() => {
       btn.addEventListener('click', () => _requestModeChange(btn.dataset.mode));
     });
 
-    // 언어 / 입력 소스 선택
-    document.getElementById('foreign-lang')
-      ?.addEventListener('change', e => { foreignLang = e.target.value; });
+    // 언어1 선택
+    document.getElementById('lang1')?.addEventListener('change', e => {
+      lang1 = e.target.value;
+      // lang2에서 lang1과 같은 항목 제외
+      _renderLangSelect('lang2', lang2 === lang1 ? _fallbackLang(lang1) : lang2, lang1);
+      if (lang2 === lang1) lang2 = document.getElementById('lang2')?.value || _fallbackLang(lang1);
+      _updateDirLabel();
+    });
+
+    // 언어2 선택
+    document.getElementById('lang2')?.addEventListener('change', e => {
+      lang2 = e.target.value;
+      // lang1에서 lang2와 같은 항목 제외
+      _renderLangSelect('lang1', lang1 === lang2 ? _fallbackLang(lang2) : lang1, lang2);
+      if (lang1 === lang2) lang1 = document.getElementById('lang1')?.value || _fallbackLang(lang2);
+      _updateDirLabel();
+    });
+
+    // 입력 소스
     document.getElementById('input-source')
       ?.addEventListener('change', e => { inputSource = e.target.value; });
 
@@ -73,8 +109,8 @@ const App = (() => {
     document.getElementById('btn-stop')  ?.addEventListener('click', stop);
     document.getElementById('btn-pause') ?.addEventListener('click', togglePause);
 
-    // 토글 방향 전환 버튼
-    document.getElementById('btn-toggle-dir')
+    // 방향 화살표 버튼 (→ / ←)
+    document.getElementById('btn-dir-arrow')
       ?.addEventListener('click', switchToggleDir);
 
     // 폰트 크기
@@ -90,26 +126,37 @@ const App = (() => {
     // 전체화면
     document.getElementById('btn-fullscreen')
       ?.addEventListener('click', _toggleFullscreen);
+    document.addEventListener('fullscreenchange', () => {
+      const btn = document.getElementById('btn-fullscreen');
+      if (btn) btn.textContent = document.fullscreenElement ? '⊡' : '⛶';
+    });
 
-    // 미러
-    document.getElementById('btn-mirror')
-      ?.addEventListener('click', () => {
-        const wrap = document.getElementById('primary-panel-wrapper');
-        const on = wrap?.classList.contains('mirrored');
-        UI.setMirror(!on);
-      });
+    // 미러 — 누를 때 방향도 자동 전환 (상대방에게 보여주기)
+    document.getElementById('btn-mirror')?.addEventListener('click', () => {
+      const wrap    = document.getElementById('primary-panel-wrapper');
+      const nowOn   = wrap?.classList.contains('mirrored');
+      UI.setMirror(!nowOn);
+      // 미러는 상대방에게 보여주는 용도 → 방향도 함께 전환
+      if (mode === 'toggle') switchToggleDir();
+    });
 
-    // 팝업 창
-    document.getElementById('btn-popup')
-      ?.addEventListener('click', () => {
-        window.open('popup.html', 'rt-popup', 'width=860,height=620,resizable=yes');
-      });
+    // 패널 초기화 버튼
+    document.getElementById('btn-clear-primary')?.addEventListener('click', () => {
+      if (confirm('기본 패널의 번역 텍스트를 초기화할까요?')) UI.clearPanel('primary');
+    });
+    document.getElementById('btn-clear-secondary')?.addEventListener('click', () => {
+      if (confirm('보조 패널의 번역 텍스트를 초기화할까요?')) UI.clearPanel('secondary');
+    });
 
-    // 저장
-    document.getElementById('btn-save-txt')
-      ?.addEventListener('click', () => Record.saveWithWarning('txt'));
-    document.getElementById('btn-save-md')
-      ?.addEventListener('click', () => Record.saveWithWarning('md'));
+    // 저장 — UI 패널 내용을 폴백으로 전달 (done 이벤트 미수신 시 대비)
+    document.getElementById('btn-save-txt')?.addEventListener('click', () => {
+      const lines = [...UI.getPanelLines('primary'), ...UI.getPanelLines('secondary')];
+      Record.saveWithWarning('txt', lines);
+    });
+    document.getElementById('btn-save-md')?.addEventListener('click', () => {
+      const lines = [...UI.getPanelLines('primary'), ...UI.getPanelLines('secondary')];
+      Record.saveWithWarning('md', lines);
+    });
 
     // 설정 패널
     document.getElementById('btn-settings')
@@ -133,8 +180,12 @@ const App = (() => {
     document.addEventListener('keydown', _onKey);
   }
 
+  function _fallbackLang(exclude) {
+    return LANGUAGES.find(l => l.code !== exclude)?.code || 'en';
+  }
+
   function _onKey(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
     switch (e.code) {
       case 'Space':
         e.preventDefault();
@@ -147,7 +198,7 @@ const App = (() => {
         break;
       case 'KeyM':
         if (!e.ctrlKey && !e.metaKey) {
-          const m = ['unidirectional', 'toggle', 'simultaneous'];
+          const m = ['toggle', 'simultaneous'];
           _requestModeChange(m[(m.indexOf(mode) + 1) % m.length]);
         }
         break;
@@ -159,7 +210,7 @@ const App = (() => {
   function _requestModeChange(newMode) {
     if (newMode === mode) return;
     if (isRunning) {
-      const names = { unidirectional: '단방향', toggle: '토글 양방향', simultaneous: '동시 양방향' };
+      const names = { toggle: '토글 양방향', simultaneous: '동시 양방향' };
       if (!confirm(`"${names[newMode]}" 모드로 전환하면 현재 세션이 재시작됩니다.\n계속하시겠습니까?`)) return;
       stop().then(() => _applyMode(newMode, true));
     } else {
@@ -196,24 +247,22 @@ const App = (() => {
       const micId = Config.getMicDevice() || undefined;
 
       if (mode === 'simultaneous') {
-        // 세션 A: 탭/마이크 → 한국어 / 세션 B: 마이크 → 외국어
+        // 세션A: 탭/마이크 → lang1 / 세션B: 마이크 → lang2
         streamA = await Audio.getStream(inputSource, micId);
         streamB = await Audio.getMicStream(micId);
-        sessionA = _makeSession(streamA, 'ko',          'primary');
-        sessionB = _makeSession(streamB, foreignLang,   'secondary');
+        sessionA = _makeSession(streamA, lang1, 'primary');
+        sessionB = _makeSession(streamB, lang2, 'secondary');
         await Promise.all([sessionA.start(), sessionB.start()]);
         Record.start(2);
       } else {
-        // 단일 세션: 단방향 또는 토글
+        // 토글 단일 세션
         streamA = await Audio.getStream(inputSource, micId);
         const target = _currentToggleTarget();
         sessionA = _makeSession(streamA, target, 'primary');
         await sessionA.start();
         Record.start(1);
-        if (mode === 'toggle') {
-          toggleDir = 'to-ko';
-          UI.setToggleDirection(toggleDir);
-        }
+        toggleDir = 'to-lang2';
+        _updateDirLabel();
       }
 
       Audio.startViz(streamA);
@@ -298,18 +347,18 @@ const App = (() => {
   // ── 토글 방향 전환 ────────────────────────────────────────────────────────────
 
   function switchToggleDir() {
-    if (!isRunning || mode !== 'toggle') return;
-    toggleDir = (toggleDir === 'to-ko') ? 'to-foreign' : 'to-ko';
-    UI.setToggleDirection(toggleDir);
-    UI.updateDelta('primary', ''); // 진행 중 delta 초기화
-
-    const newTarget = _currentToggleTarget();
-    sessionA?.updateTargetLanguage(newTarget);
+    if (mode !== 'toggle') return;
+    toggleDir = (toggleDir === 'to-lang2') ? 'to-lang1' : 'to-lang2';
+    _updateDirLabel();
+    if (isRunning) {
+      const newTarget = _currentToggleTarget();
+      sessionA?.updateTargetLanguage(newTarget);
+      UI.updateDelta('primary', '');
+    }
   }
 
   function _currentToggleTarget() {
-    if (mode !== 'toggle') return 'ko';
-    return toggleDir === 'to-ko' ? 'ko' : foreignLang;
+    return toggleDir === 'to-lang2' ? lang2 : lang1;
   }
 
   // ── 설정 저장 ────────────────────────────────────────────────────────────────
@@ -329,7 +378,6 @@ const App = (() => {
     if (audioOut !== undefined) Config.setAudioOutput(audioOut);
 
     const outDev = document.getElementById('s-output-device')?.value;
-    // 번역 음성 ON이면 출력 장치 선택 필수
     if (audioOut && !outDev) {
       alert('번역 음성을 켜려면 출력 장치(이어폰 등)를 반드시 선택해 주세요.');
       return;
@@ -339,9 +387,8 @@ const App = (() => {
     const showSrc = document.getElementById('s-show-source')?.checked;
     if (showSrc !== undefined) Config.setShowSource(showSrc);
 
-    // 실행 중인 세션에 오디오 출력 즉시 반영
-    const enabled  = Config.getAudioOutput();
-    const devId    = Config.getOutputDevice();
+    const enabled = Config.getAudioOutput();
+    const devId   = Config.getOutputDevice();
     sessionA?.setAudioOutput(enabled, devId);
     sessionB?.setAudioOutput(enabled, devId);
 
@@ -352,7 +399,6 @@ const App = (() => {
   // ── 장치 목록 로드 ────────────────────────────────────────────────────────────
 
   async function _loadDeviceLists() {
-    // 패널 열릴 때 오디오 출력 행 초기 상태 반영
     _toggleOutputDeviceRow(Config.getAudioOutput());
 
     const [mics, outs] = await Promise.all([
@@ -396,10 +442,20 @@ const App = (() => {
   }
 
   function _toggleFullscreen() {
+    const el = document.documentElement;
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      const rfn = el.requestFullscreen?.bind(el)
+               || el.webkitRequestFullscreen?.bind(el)
+               || el.mozRequestFullScreen?.bind(el);
+      if (rfn) {
+        rfn().catch(err => UI.setStatus('전체화면 사용 불가: ' + err.message, 'warning'));
+      } else {
+        UI.setStatus('전체화면을 지원하지 않는 브라우저입니다', 'warning');
+      }
     } else {
-      document.exitFullscreen().catch(() => {});
+      const efn = document.exitFullscreen?.bind(document)
+               || document.webkitExitFullscreen?.bind(document);
+      efn?.().catch(() => {});
     }
   }
 

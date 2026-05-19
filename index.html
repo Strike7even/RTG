@@ -15,25 +15,23 @@
   <header class="header">
     <div class="header-left">
 
-      <!-- 모드 선택 -->
+      <!-- 모드 선택 (단방향 제거 — 토글 양방향으로 대체) -->
       <div class="mode-buttons">
-        <button class="mode-btn" data-mode="unidirectional" title="단방향: 상대 언어 → 한국어">단방향</button>
-        <button class="mode-btn active" data-mode="toggle"  title="토글: 스페이스바로 방향 전환 (대면 회의 기본값)">토글 양방향</button>
-        <button class="mode-btn" data-mode="simultaneous"  title="동시 양방향: 오디오 분리 환경 권장">동시 양방향</button>
+        <button class="mode-btn active" data-mode="toggle"       title="토글: 방향 화살표 버튼으로 전환 (대면 회의 기본값)">토글 양방향</button>
+        <button class="mode-btn"        data-mode="simultaneous" title="동시 양방향: 오디오 분리 환경 권장">동시 양방향</button>
       </div>
 
-      <!-- 언어 & 입력 소스 -->
+      <!-- 언어1 / 언어2 선택 -->
       <div class="header-selects">
-        <select id="foreign-lang" class="sel" title="상대 언어">
-          <!-- JS에서 채움 -->
-        </select>
+        <select id="lang1" class="sel" title="언어 1"></select>
+        <select id="lang2" class="sel" title="언어 2"></select>
         <select id="input-source" class="sel" title="오디오 입력 소스">
           <option value="mic">🎙 마이크</option>
           <option value="tab">🖥 탭 오디오</option>
         </select>
       </div>
 
-      <!-- 마이크 음파 표시 (연결 중일 때만 표시) -->
+      <!-- 마이크 음파 표시 -->
       <canvas id="mic-viz" width="64" height="22" title="마이크 입력 레벨"></canvas>
     </div>
 
@@ -53,34 +51,39 @@
   <!-- ══ 번역 패널 ══════════════════════════════════════════════════════════ -->
   <main class="panels">
 
-    <!-- 기본 패널: 상대 → 한국어 (단방향·토글·동시 공용) -->
+    <!-- 기본 패널 -->
     <div class="panel-wrapper" id="primary-panel-wrapper">
       <div class="panel-header">
-        <span class="panel-label" id="primary-label">→ 한국어</span>
 
-        <!-- 토글 모드 방향 표시 + 전환 버튼 -->
-        <div class="toggle-dir-row" id="toggle-dir-row" style="display:none">
-          <span id="toggle-dir-label" class="">상대방 → 한국어</span>
-          <button id="btn-toggle-dir" class="small-btn" title="방향 전환 (Space)">⇄ 전환</button>
+        <!-- 방향 제어: [언어1] [→/← 버튼] [언어2] -->
+        <div class="dir-control" id="dir-control">
+          <span class="dir-lang" id="dir-lang1">한국어</span>
+          <button class="dir-arrow-btn" id="btn-dir-arrow" title="클릭해서 번역 방향 전환 (Space)">→</button>
+          <span class="dir-lang" id="dir-lang2">English</span>
         </div>
 
-        <!-- 우측 패널 컨트롤 -->
         <span style="flex:1"></span>
-        <button id="btn-mirror" class="small-btn" title="패널 180° 미러 (노트북 마주 앉을 때)">↕ 미러</button>
-        <button id="btn-popup"  class="small-btn" title="상대방용 보조 창 열기">⧉ 팝업</button>
+
+        <!-- 미러 버튼 (크게, 상대방에게 보여줄 때) -->
+        <button id="btn-mirror" class="mirror-btn" title="미러 모드 — 상대방에게 보여주기 (방향도 자동 전환)">↕ 미러</button>
+
+        <!-- 초기화 버튼 -->
+        <button id="btn-clear-primary" class="small-btn" title="패널 텍스트 초기화">↺ 초기화</button>
       </div>
       <div class="panel" id="panel-primary">
-        <div class="panel-placeholder">번역 결과가 여기에 표시됩니다</div>
+        <div class="panel-placeholder">번역 결과가 여기에 표시됩니다<br><small style="font-size:0.55em;opacity:0.6">확정 텍스트를 더블클릭하면 편집할 수 있습니다</small></div>
       </div>
     </div>
 
-    <!-- 보조 패널: 한국어 → 상대 (동시 양방향 전용) -->
+    <!-- 보조 패널: 동시 양방향 전용 -->
     <div class="panel-wrapper" id="secondary-panel-wrapper" style="display:none">
       <div class="panel-header">
-        <span class="panel-label">한국어 → 상대방</span>
+        <span class="panel-label" id="secondary-label">한국어 → English</span>
+        <span style="flex:1"></span>
+        <button id="btn-clear-secondary" class="small-btn" title="패널 텍스트 초기화">↺ 초기화</button>
       </div>
       <div class="panel" id="panel-secondary">
-        <div class="panel-placeholder">한국어 발화가 여기에 번역됩니다</div>
+        <div class="panel-placeholder">번역 결과가 여기에 표시됩니다</div>
       </div>
     </div>
 
