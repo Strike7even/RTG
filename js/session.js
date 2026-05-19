@@ -116,7 +116,7 @@ class TranslationSession {
       ? this.clientSecret.value
       : this.clientSecret;
 
-    const answerRes = await fetch('https://api.openai.com/v1/realtime/translations/calls', {
+    const answerRes = await fetch('https://api.openai.com/v1/realtime/translations', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${secretValue}`,
@@ -125,7 +125,10 @@ class TranslationSession {
       body: offer.sdp
     });
 
-    if (!answerRes.ok) throw new Error(`SDP 교환 실패: ${answerRes.status}`);
+    if (!answerRes.ok) {
+      const errBody = await answerRes.text().catch(() => '');
+      throw new Error(`SDP 교환 실패: ${answerRes.status} ${errBody.slice(0, 300)}`);
+    }
     const answerSdp = await answerRes.text();
     await this.pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
   }
