@@ -1,0 +1,12 @@
+# Playwright MCP 자동 생성 산출물 (콘솔 로그·스냅샷·스크린샷)
+.playwright-mcp/
+
+# OS 생성 파일
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 에디터/IDE
+.vscode/
+.idea/
+*.swp
