@@ -184,6 +184,20 @@ const App = (() => {
     return LANGUAGES.find(l => l.code !== exclude)?.code || 'en';
   }
 
+  // 누적 버퍼에서 완성된 문장들을 분리. 마지막 미완성 조각은 rest로 반환.
+  // 문장 종료 부호(. ! ? 。 ． ！ ？ …) + 닫는 괄호/따옴표 뒤에 공백이 오면 그 지점에서 끊는다.
+  function _splitCompletedSentences(buf) {
+    const re = /[.!?。．！？…]+[)\]”’」』）]*\s+/g;
+    const confirmed = [];
+    let last = 0, m;
+    while ((m = re.exec(buf)) !== null) {
+      const end = m.index + m[0].length;
+      confirmed.push(buf.slice(last, end));
+      last = end;
+    }
+    return { confirmed, rest: buf.slice(last) };
+  }
+
   function _onKey(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
     switch (e.code) {
@@ -277,18 +291,40 @@ const App = (() => {
   }
 
   function _makeSession(stream, targetLang, panelId) {
-    let outBuf = '';
+    let outBuf = '';      // 아직 확정되지 않은 누적 텍스트
     let srcBuf = '';
+    let flushTimer = null;
+
+    // 한 문장을 확정 줄(흰색)로 이동
+    function _commit(text) {
+      const t = (text || '').trim();
+      if (!t) return;
+      UI.appendFinal(panelId, t, srcBuf);
+      Record.addEntry(panelId, t, srcBuf);
+      srcBuf = '';
+    }
+
+    // 남아있는 미확정 조각을 강제로 확정 (말이 멈췄거나 done 수신 시)
+    function _flushPending() {
+      clearTimeout(flushTimer);
+      if (outBuf.trim()) { _commit(outBuf); outBuf = ''; UI.updateDelta(panelId, ''); }
+    }
 
     const sess = new TranslationSession({
       targetLanguage: targetLang,
       audioStream:    stream,
-      onOutputDelta: (d) => { outBuf += d; UI.updateDelta(panelId, outBuf); },
-      onOutputFinal: (t) => {
-        UI.appendFinal(panelId, t, srcBuf);
-        Record.addEntry(panelId, t, srcBuf);
-        outBuf = ''; srcBuf = '';
+      onOutputDelta: (d) => {
+        outBuf += d;
+        // 완성된 문장은 확정 줄로 이동, 마지막 미완성 조각만 delta(회색)로 유지
+        const { confirmed, rest } = _splitCompletedSentences(outBuf);
+        confirmed.forEach(_commit);
+        outBuf = rest;
+        UI.updateDelta(panelId, outBuf);
+        // done 이벤트 누락 대비: 말이 1.5초 멈추면 남은 조각도 확정
+        clearTimeout(flushTimer);
+        flushTimer = setTimeout(_flushPending, 1500);
       },
+      onOutputFinal: () => { _flushPending(); },  // done이 실제로 오면 잔여 조각 확정
       onInputDelta:  (d) => { srcBuf += d; },
       onInputFinal:  ()  => {},
       onStateChange: (s) => {
