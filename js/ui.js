@@ -109,7 +109,15 @@ const UI = (() => {
   }
 
   function getPanelLines(panelId) {
-    return panels[panelId]?.lines || [];
+    const p = panels[panelId];
+    if (!p) return [];
+    const out = p.lines.slice();
+    // 아직 확정(done)되지 않은 진행 중 텍스트(delta)도 저장 대상에 포함.
+    // done 이벤트가 늦거나 누락돼도 화면에 보이는 내용은 항상 저장되도록 한다.
+    if (p.delta && p.delta.trim()) {
+      out.push({ text: p.delta.trim(), sourceText: '', ts: _timeStr() });
+    }
+    return out;
   }
 
   function _render(panelId) {
