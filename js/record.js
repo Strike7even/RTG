@@ -77,19 +77,27 @@ const Record = (() => {
     return new Date(ts).toLocaleTimeString('ko-KR', { hour12: false });
   }
 
+  // 화면 표시와 동일하게 문장 종료 부호 뒤에서 줄바꿈(\n) — 저장 파일 가독성.
+  // 두 번째 줄부터는 타임스탬프 폭만큼 들여써 정렬을 맞춘다.
+  function _breakSentences(s, indent = '') {
+    return s.replace(/([.!?。．！？…]+[)\]”’」』）]*)\s+/g, '$1\n' + indent).trim();
+  }
+
   function _toTxt(entries) {
     const warn = '⚠️ 통역 결과에 오류가 있을 수 있으며, 회의 내용에 민감·기밀 정보가 포함될 수 있으니 취급에 주의하세요.\n\n';
-    const body = entries.map(e =>
-      `[${_formatTime(e.ts)}] ${e.text}` +
-      (e.sourceText ? `\n  (원문: ${e.sourceText})` : '')
-    ).join('\n');
+    const body = entries.map(e => {
+      const head = `[${_formatTime(e.ts)}] `;
+      return head + _breakSentences(e.text, ' '.repeat(head.length)) +
+        (e.sourceText ? `\n  (원문: ${e.sourceText})` : '');
+    }).join('\n');
     return warn + body;
   }
 
   function _toMd(entries) {
     const warn = '> ⚠️ **주의**: 통역 결과에 오류가 있을 수 있으며, 회의 내용에 민감·기밀 정보가 포함될 수 있으니 취급에 주의하세요.\n\n# 회의록\n\n';
     const body = entries.map(e =>
-      `**[${_formatTime(e.ts)}]** ${e.text}` +
+      `**[${_formatTime(e.ts)}]**\n` +
+      _breakSentences(e.text).split('\n').map(line => line.trim()).join('  \n') +
       (e.sourceText ? `\n> 원문: ${e.sourceText}` : '')
     ).join('\n\n');
     return warn + body;
