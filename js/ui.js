@@ -122,12 +122,12 @@ const UI = (() => {
     let html = lines.map((l, i) => `
       <div class="t-line confirmed" data-index="${i}">
         <span class="t-ts">${l.ts}</span>
-        <span class="t-text">${_esc(l.text)}</span>
+        <span class="t-text">${_formatSentences(l.text)}</span>
         ${showSrc && l.sourceText ? `<span class="t-src">${_esc(l.sourceText)}</span>` : ''}
       </div>`).join('');
 
     if (delta) {
-      html += `<div class="t-line delta"><span class="t-text">${_esc(delta)}</span></div>`;
+      html += `<div class="t-line delta"><span class="t-text">${_formatSentences(delta)}</span></div>`;
     }
 
     if (!html) {
@@ -140,6 +140,13 @@ const UI = (() => {
 
   function _esc(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // 문장 종료 부호(. ! ? 。 ． ！ ？ …) 뒤에 공백이 오면 줄바꿈 — 가독성 향상.
+  // 종료 부호 뒤 닫는 괄호·따옴표(escape 후에도 보존되는 문자)까지 포함해 끊는다.
+  // 공백 한 칸을 유지해 인라인 편집 시 textContent가 문장을 붙여버리지 않도록 한다.
+  function _formatSentences(s) {
+    return _esc(s).replace(/([.!?。．！？…]+[)\]”’」』）]*)\s+/g, '$1 <br>');
   }
 
   function _timeStr() {

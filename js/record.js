@@ -127,8 +127,12 @@ const Record = (() => {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
+    // 일부 브라우저(Firefox·모바일)는 DOM에 붙은 앵커만 클릭이 동작한다.
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    // 다운로드가 시작되기 전에 URL을 폐기하면 빈 파일/실패가 되므로 지연 후 해제.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   return { start, stop, pause, resume, setSessionCount, addEntry, clearEntries, hasEntries, saveWithWarning };
