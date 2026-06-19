@@ -125,9 +125,12 @@ const Record = (() => {
     );
     if (!ok) return;
 
-    const date    = new Date().toISOString().slice(0, 10);
-    const content = format === 'md' ? _toMd(entries) : _toTxt(entries);
-    const ext     = format === 'md' ? 'md' : 'txt';
+    const date = new Date().toISOString().slice(0, 10);
+    const isMd = format === 'md';
+    // Windows 메모장 등은 BOM 없는 UTF-8을 ANSI로 오인해 한글이 깨진다.
+    // txt에만 UTF-8 BOM을 붙인다(일부 Markdown 파서는 BOM을 싫어하므로 md는 제외).
+    const content = isMd ? _toMd(entries) : '﻿' + _toTxt(entries);
+    const ext     = isMd ? 'md' : 'txt';
     _download(content, `meeting-${date}.${ext}`);
   }
 
