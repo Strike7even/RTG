@@ -173,14 +173,23 @@ const UI = (() => {
 
   // ── 방향 화살표 레이블 ───────────────────────────────────────────────────────
 
-  // dir: 'to-lang2' → arrow shows →  |  'to-lang1' → arrow shows ←
+  // dir: 'to-lang2' → lang1을 듣고 lang2로 번역(화살표 ➜, lang1=듣는 언어)
+  //      'to-lang1' → lang2를 듣고 lang1로 번역(화살표 ⬅, lang2=듣는 언어)
   function setDirLabel(lang1Name, lang2Name, dir) {
-    const arrowBtn = document.getElementById('btn-dir-arrow');
-    const l1El     = document.getElementById('dir-lang1');
-    const l2El     = document.getElementById('dir-lang2');
-    if (arrowBtn) arrowBtn.textContent = (dir === 'to-lang2') ? '→' : '←';
+    const l1El   = document.getElementById('dir-lang1');
+    const l2El   = document.getElementById('dir-lang2');
+    const arrow  = document.getElementById('dir-arrow-icon');
     if (l1El) l1El.textContent = lang1Name;
     if (l2El) l2El.textContent = lang2Name;
+    if (arrow) arrow.textContent = (dir === 'to-lang2') ? '➜' : '⬅';
+    // 듣는 언어(source)는 채운 초록, 번역 결과(target)는 외곽선으로 강조
+    if (l1El && l2El) {
+      const l1IsSource = (dir === 'to-lang2');
+      l1El.classList.toggle('dir-source',  l1IsSource);
+      l1El.classList.toggle('dir-target', !l1IsSource);
+      l2El.classList.toggle('dir-source', !l1IsSource);
+      l2El.classList.toggle('dir-target',  l1IsSource);
+    }
   }
 
   // ── 레이아웃 / 모드 ─────────────────────────────────────────────────────────

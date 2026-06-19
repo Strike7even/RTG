@@ -290,6 +290,12 @@ const App = (() => {
     }
   }
 
+  // 침묵으로 간주해 미완성 조각을 강제 확정하기까지의 대기(ms).
+  // 문장 중간의 짧은 멈칫임에는 자르지 않도록 충분히 길게 둔다.
+  const SILENCE_MS = 2500;
+  // 문장 종료부호(+닫는 괄호/따옴표)로 끝나는지 — 완성 문장 판정.
+  const ENDS_SENTENCE = /[.!?。．！？…]+[)\]”’」』）]*$/;
+
   function _makeSession(stream, targetLang, panelId) {
     let outBuf = '';      // 아직 확정되지 않은 누적 텍스트
     let srcBuf = '';
@@ -304,10 +310,29 @@ const App = (() => {
       srcBuf = '';
     }
 
-    // 남아있는 미확정 조각을 강제로 확정 (말이 멈췄거나 done 수신 시)
+    // 마침표 보정 — 종료부호로 끝나지 않으면 끝에 마침표를 붙인다.
+    function _ensurePunct(t) {
+      return ENDS_SENTENCE.test(t) ? t : t + '.';
+    }
+
+    // 침묵 타이머 재무장 — 남은 조각이 있을 때만.
+    function _armFlush() {
+      clearTimeout(flushTimer);
+      if (outBuf.trim()) flushTimer = setTimeout(_flushPending, SILENCE_MS);
+    }
+
+    // 긴 침묵·세션 종료 시 남은 미완성 조각을 마침표 보정 후 강제 확정.
     function _flushPending() {
       clearTimeout(flushTimer);
-      if (outBuf.trim()) { _commit(outBuf); outBuf = ''; UI.updateDelta(panelId, ''); }
+      if (outBuf.trim()) { _commit(_ensurePunct(outBuf.trim())); outBuf = ''; UI.updateDelta(panelId, ''); }
+    }
+
+    // 마침표 기준으로 완성된 문장만 확정하고, 미완성 잔여는 outBuf에 남긴다.
+    function _drainCompleted() {
+      const { confirmed, rest } = _splitCompletedSentences(outBuf);
+      confirmed.forEach(_commit);
+      outBuf = rest;
+      UI.updateDelta(panelId, outBuf);
     }
 
     const sess = new TranslationSession({
@@ -315,16 +340,21 @@ const App = (() => {
       audioStream:    stream,
       onOutputDelta: (d) => {
         outBuf += d;
-        // 완성된 문장은 확정 줄로 이동, 마지막 미완성 조각만 delta(회색)로 유지
-        const { confirmed, rest } = _splitCompletedSentences(outBuf);
-        confirmed.forEach(_commit);
-        outBuf = rest;
-        UI.updateDelta(panelId, outBuf);
-        // done 이벤트 누락 대비: 말이 1.5초 멈추면 남은 조각도 확정
-        clearTimeout(flushTimer);
-        flushTimer = setTimeout(_flushPending, 1500);
+        _drainCompleted();
+        _armFlush();
       },
-      onOutputFinal: () => { _flushPending(); },  // done이 실제로 오면 잔여 조각 확정
+      // done은 "음성 세그먼트" 종료일 뿐 문장 종료가 아니다.
+      // 마침표로 끝난(완성된) 잔여만 즉시 확정하고, 미완성 조각은 유지해
+      // 다음 세그먼트와 병합하거나 침묵 타이머가 마침표 보정 후 확정하게 둔다.
+      onOutputFinal: () => {
+        _drainCompleted();
+        if (outBuf.trim() && ENDS_SENTENCE.test(outBuf.trim())) {
+          _commit(outBuf.trim());
+          outBuf = '';
+          UI.updateDelta(panelId, '');
+        }
+        _armFlush();
+      },
       onInputDelta:  (d) => { srcBuf += d; },
       onInputFinal:  ()  => {},
       onStateChange: (s) => {

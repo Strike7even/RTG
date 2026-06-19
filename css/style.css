@@ -239,40 +239,63 @@ select.sel {
 .dir-control {
   display: flex;
   align-items: center;
-  gap: 8px;
 }
 
-.dir-lang {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent);
-  white-space: nowrap;
-}
-
-.dir-arrow-btn {
-  padding: 3px 14px;
+/* 통합 알약형 방향 토글 버튼 — [듣는 언어]➜[번역 언어] 한 버튼 */
+.dir-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
   background: var(--surface);
-  color: var(--green);
-  border: 1px solid var(--green);
-  border-radius: 5px;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: 999px;
   cursor: pointer;
   transition: var(--transition);
   user-select: none;
 }
-.dir-arrow-btn:hover:not(:disabled) {
+.dir-toggle-btn:hover:not(:disabled) {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(0, 200, 120, 0.15);
+}
+
+/* 언어 칩 — 듣는 언어(source)/번역(target)에 따라 채움·외곽선 전환 */
+.dir-lang {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: var(--transition);
+}
+.dir-lang.dir-source {           /* 듣는 언어 — 채운 초록 */
   background: var(--green);
   color: var(--bg);
 }
-.dir-arrow-btn.dir-arrow-disabled,
-.dir-arrow-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-  border-color: var(--border);
+.dir-lang.dir-source::before { content: "🎤 "; }
+.dir-lang.dir-target {           /* 번역 출력 언어 — 외곽선 */
+  background: transparent;
   color: var(--text2);
+  box-shadow: inset 0 0 0 1.5px var(--border);
 }
+.dir-lang.dir-target::before { content: "🔊 "; }
+
+.dir-arrow {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--green);
+}
+
+/* 토글 모드가 아닐 때(동시 양방향) 비활성 */
+.dir-toggle-btn.dir-arrow-disabled,
+.dir-toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+}
+.dir-toggle-btn:disabled:hover { border-color: var(--border); box-shadow: none; }
 
 /* 미러 버튼 (크게, 강조) */
 .mirror-btn {

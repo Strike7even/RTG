@@ -55,11 +55,13 @@
     <div class="panel-wrapper" id="primary-panel-wrapper">
       <div class="panel-header">
 
-        <!-- 방향 제어: [언어1] [→/← 버튼] [언어2] -->
+        <!-- 방향 제어: 통합 알약 버튼 [듣는 언어]➜[번역 언어] -->
         <div class="dir-control" id="dir-control">
-          <span class="dir-lang" id="dir-lang1">한국어</span>
-          <button class="dir-arrow-btn" id="btn-dir-arrow" title="클릭해서 번역 방향 전환 (Space)">→</button>
-          <span class="dir-lang" id="dir-lang2">English</span>
+          <button class="dir-toggle-btn" id="btn-dir-arrow" title="클릭해서 번역 방향 전환 (Space)">
+            <span class="dir-lang" id="dir-lang1">한국어</span>
+            <span class="dir-arrow" id="dir-arrow-icon">➜</span>
+            <span class="dir-lang" id="dir-lang2">English</span>
+          </button>
         </div>
 
         <span style="flex:1"></span>
